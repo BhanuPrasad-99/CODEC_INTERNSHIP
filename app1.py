@@ -10,160 +10,169 @@ from sklearn.metrics import accuracy_score, recall_score
 # -------------------------------------------------
 # PAGE CONFIG
 # -------------------------------------------------
-st.set_page_config(
-    page_title="Employee Attrition Prediction System",
-    layout="wide"
-)
+st.set_page_config(page_title="Employee Attrition Prediction System", layout="wide")
 
 st.title("📉 Employee Attrition Prediction System")
-st.caption("Internship Final Project – HR Analytics & Machine Learning")
+st.caption("Internship / Final Year / Placement Project – HR Analytics & ML")
 
 # -------------------------------------------------
-# DATASET UPLOAD
+# DATA UPLOAD
 # -------------------------------------------------
-st.markdown("### 📂 Upload HR Dataset")
-
-uploaded_file = st.file_uploader(
-    "Upload IBM HR Analytics Dataset (CSV format)",
-    type="csv"
-)
+uploaded_file = st.file_uploader("Upload IBM HR Attrition Dataset (CSV)", type="csv")
 
 if uploaded_file is None:
-    st.info("Please upload the HR Attrition dataset to proceed.")
     st.stop()
 
 df = pd.read_csv(uploaded_file)
 
-st.markdown("### 🔍 Dataset Preview")
-st.dataframe(df.head())
+TARGET = "Attrition"
+df[TARGET] = df[TARGET].map({"Yes": 1, "No": 0})
 
-# -------------------------------------------------
-# TARGET COLUMN
-# -------------------------------------------------
-TARGET_COLUMN = "Attrition"
-
-if TARGET_COLUMN not in df.columns:
-    st.error("❌ Dataset must contain an 'Attrition' column.")
-    st.stop()
-
-df[TARGET_COLUMN] = df[TARGET_COLUMN].map({"Yes": 1, "No": 0})
-
-# -------------------------------------------------
-# FEATURE SELECTION (HR RELEVANT ONLY)
-# -------------------------------------------------
 FEATURES = [
-    "Age",
-    "MonthlyIncome",
-    "JobSatisfaction",
-    "WorkLifeBalance",
-    "YearsAtCompany",
-    "OverTime",
-    "Gender",
-    "Department"
+    "Age","MonthlyIncome","JobSatisfaction","WorkLifeBalance",
+    "YearsAtCompany","OverTime","Gender","Department"
 ]
 
-missing_features = [f for f in FEATURES if f not in df.columns]
-if missing_features:
-    st.error(f"❌ Missing required columns: {missing_features}")
-    st.stop()
+df = df[FEATURES + [TARGET]]
 
-df = df[FEATURES + [TARGET_COLUMN]]
-
-# -------------------------------------------------
-# ENCODING
-# -------------------------------------------------
 df["OverTime"] = df["OverTime"].map({"Yes": 1, "No": 0})
 df["Gender"] = df["Gender"].map({"Male": 1, "Female": 0})
 df["Department"] = df["Department"].map({
-    "Sales": 0,
-    "Research & Development": 1,
-    "Human Resources": 2
+    "Sales": 0, "Research & Development": 1, "Human Resources": 2
 })
 
-# -------------------------------------------------
-# MODEL PIPELINE
-# -------------------------------------------------
 X = df[FEATURES]
-y = df[TARGET_COLUMN]
+y = df[TARGET]
 
 scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
+X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=FEATURES)
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X_scaled, y, test_size=0.2, random_state=42
-)
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
-model = RandomForestClassifier(
-    n_estimators=200,
-    random_state=42
-)
+model = RandomForestClassifier(n_estimators=200, random_state=42)
 model.fit(X_train, y_train)
 
 # -------------------------------------------------
-# MODEL PERFORMANCE
+# MODEL METRICS
 # -------------------------------------------------
 preds = model.predict(X_test)
 
-st.markdown("### 📊 Model Performance")
-
-col1, col2 = st.columns(2)
-with col1:
-    st.metric("Accuracy", round(accuracy_score(y_test, preds), 2))
-with col2:
-    st.metric("Recall", round(recall_score(y_test, preds), 2))
-
-st.markdown(
-    "> **Recall is prioritized** because missing an employee likely to leave is costlier than a false alert."
-)
+st.subheader("📊 Model Performance")
+c1, c2 = st.columns(2)
+c1.metric("Accuracy", round(accuracy_score(y_test, preds), 2))
+c2.metric("Recall", round(recall_score(y_test, preds), 2))
 
 # -------------------------------------------------
-# PREDICTION PANEL
+# USER INPUT
 # -------------------------------------------------
-st.markdown("### 🔮 Predict Employee Attrition Risk")
+st.subheader("🔮 Employee Details")
 
 c1, c2 = st.columns(2)
 
 with c1:
-    age = st.slider("Employee Age", 18, 60, 30)
-    income = st.number_input("Monthly Income (₹)", 1000, 200000, 30000)
-    years_company = st.slider("Years at Company", 0, 40, 5)
-    job_sat = st.slider("Job Satisfaction (1 = Low, 4 = High)", 1, 4, 3)
+    age = st.slider("Age", 18, 60, 30)
+    income = st.number_input("Monthly Income", 1000, 200000, 30000)
+    years = st.slider("Years at Company", 0, 40, 5)
+    job_sat = st.slider("Job Satisfaction", 1, 4, 3)
 
 with c2:
-    work_life = st.slider("Work-Life Balance (1 = Poor, 4 = Excellent)", 1, 4, 3)
-    overtime = st.selectbox("OverTime", ["Yes", "No"])
-    gender = st.selectbox("Gender", ["Male", "Female"])
-    department = st.selectbox(
-        "Department",
-        ["Sales", "Research & Development", "Human Resources"]
-    )
+    wlb = st.slider("Work Life Balance", 1, 4, 3)
+    overtime = st.selectbox("OverTime", ["Yes","No"])
+    gender = st.selectbox("Gender", ["Male","Female"])
+    dept = st.selectbox("Department", ["Sales","Research & Development","Human Resources"])
 
-# Encode input
-overtime_val = 1 if overtime == "Yes" else 0
-gender_val = 1 if gender == "Male" else 0
-dept_val = {
-    "Sales": 0,
-    "Research & Development": 1,
-    "Human Resources": 2
-}[department]
+base_input = pd.DataFrame([{
+    "Age": age,
+    "MonthlyIncome": income,
+    "JobSatisfaction": job_sat,
+    "WorkLifeBalance": wlb,
+    "YearsAtCompany": years,
+    "OverTime": 1 if overtime=="Yes" else 0,
+    "Gender": 1 if gender=="Male" else 0,
+    "Department": {"Sales":0,"Research & Development":1,"Human Resources":2}[dept]
+}])
 
-input_data = np.array([[
-    age,
-    income,
-    job_sat,
-    work_life,
-    years_company,
-    overtime_val,
-    gender_val,
-    dept_val
-]])
+base_scaled = scaler.transform(base_input)
 
-input_scaled = scaler.transform(input_data)
+# -------------------------------------------------
+# PREDICTION + SCENARIO ANALYSIS
+# -------------------------------------------------
+if st.button("🚀 Predict & Analyze"):
 
-if st.button("🚀 Predict Attrition Risk"):
-    prediction = model.predict(input_scaled)[0]
+    base_prob = model.predict_proba(base_scaled)[0][1]
 
-    if prediction == 1:
-        st.error("⚠️ High Risk: Employee is likely to leave the organization.")
+    st.markdown("---")
+    st.subheader("🎯 Final Prediction")
+
+    st.metric("Attrition Probability", f"{base_prob:.2%}")
+
+    # ----------------------------
+    # WHAT-IF SCENARIOS
+    # ----------------------------
+    scenarios = {
+        "Base Case": base_prob,
+        "Low Job Satisfaction": model.predict_proba(
+            scaler.transform(base_input.assign(JobSatisfaction=1))
+        )[0][1],
+        "Poor Work-Life Balance": model.predict_proba(
+            scaler.transform(base_input.assign(WorkLifeBalance=1))
+        )[0][1],
+        "High Income Increase": model.predict_proba(
+            scaler.transform(base_input.assign(MonthlyIncome=income+20000))
+        )[0][1],
+        "Overtime Increased": model.predict_proba(
+            scaler.transform(base_input.assign(OverTime=1))
+        )[0][1],
+        "More Years at Company": model.predict_proba(
+            scaler.transform(base_input.assign(YearsAtCompany=years+5))
+        )[0][1],
+        "Department Change (R&D)": model.predict_proba(
+            scaler.transform(base_input.assign(Department=1))
+        )[0][1]
+    }
+
+    scenario_df = pd.DataFrame({
+        "Scenario": scenarios.keys(),
+        "Attrition Probability": scenarios.values()
+    }).set_index("Scenario")
+
+    # ----------------------------
+    # VISUALIZATION 1: BAR
+    # ----------------------------
+    st.subheader("📊 Scenario-wise Attrition Probability")
+    st.bar_chart(scenario_df)
+
+    # ----------------------------
+    # VISUALIZATION 2: LINE TREND
+    # ----------------------------
+    st.subheader("📈 Risk Trend Across Scenarios")
+    st.line_chart(scenario_df)
+
+    # ----------------------------
+    # VISUALIZATION 3: TABLE
+    # ----------------------------
+    st.subheader("🧾 Scenario Comparison Table")
+    st.dataframe(scenario_df.style.format("{:.2%}"))
+
+    # ----------------------------
+    # VISUALIZATION 4: FEATURE IMPORTANCE
+    # ----------------------------
+    st.subheader("📌 Feature Importance")
+    fi = pd.DataFrame({
+        "Feature": FEATURES,
+        "Importance": model.feature_importances_
+    }).sort_values(by="Importance", ascending=False)
+
+    st.bar_chart(fi.set_index("Feature"))
+
+    # ----------------------------
+    # VISUALIZATION 5: RISK LEVEL
+    # ----------------------------
+    st.subheader("🚦 Risk Category")
+
+    if base_prob > 0.65:
+        st.error("🔴 HIGH RISK – Immediate HR intervention needed")
+    elif base_prob > 0.35:
+        st.warning("🟠 MEDIUM RISK – Monitor closely")
     else:
-        st.success("✅ Low Risk: Employee is likely to stay with the organization.")
+        st.success("🟢 LOW RISK – Employee likely to stay")
